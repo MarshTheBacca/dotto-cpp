@@ -1,10 +1,13 @@
-#include "validation_tools.h"
-#include <filesystem>
 #include <getopt.h>
-#include <iostream>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+
+#include <filesystem>
+#include <iostream>
+
+#include "settings_data.h"
+#include "validation_tools.h"
 
 // Global exit flag to cleanly exit when we use ctrl + c
 const std::atomic<bool> exitFlag(false);
@@ -16,13 +19,11 @@ using LoggerPtr = std::shared_ptr<spdlog::logger>;
  */
 LoggerPtr initialiseLogger() {
   // Create a file sink and a console sink with different names for clarity
-  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-      std::filesystem::path("./dotto-cpp.log"), true);
+  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(std::filesystem::path("./dotto-cpp.log"), true);
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
   // Combine the sinks into a multi-sink logger
-  auto logger = std::make_shared<spdlog::logger>(
-      "multi_sink", spdlog::sinks_init_list{file_sink, console_sink});
+  auto logger = std::make_shared<spdlog::logger>("multi_sink", spdlog::sinks_init_list{file_sink, console_sink});
   spdlog::register_logger(logger);
   logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
 
@@ -33,13 +34,20 @@ LoggerPtr initialiseLogger() {
 
 int main() {
   LoggerPtr logger = initialiseLogger();
+  auto settingsData = SettingsData();
   logger->info("Hello World");
-  std::optional<std::pair<int, int>> coord =
-      getValidCoord("Enter a coordinate", 5, 5, "c");
-  if (coord.has_value()) {
-    logger->info("Coordinate: ({}, {})", coord->first, coord->second);
-  } else {
-    logger->info("User cancelled input");
+  while (true) {
+    int option = getValidInt("What would you like to do? \n1) Play\n2) Edit settings\n4) View scores\n5) Exit", 1, 5);
+    if (option == 5) {
+      return 0;
+    } else if (option == 1) {
+      return 0;
+    } else if (option == 2) {
+      settingsData.edit();
+    } else if (option == 3) {
+      return 0;
+    } else if (option == 4) {
+      return 0;
+    }
   }
-  return 0;
 }
