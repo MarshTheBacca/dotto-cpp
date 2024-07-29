@@ -1,0 +1,52 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "makeFolder",
+            "type": "shell",
+            "command": "mkdir -p ${workspaceFolder}/build",
+            "problemMatcher": [],
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "rm -rf ${workspaceFolder}/build/*",
+            "problemMatcher": [],
+            "dependsOn": "makeFolder"
+        },
+        {
+            "label": "configure",
+            "type": "shell",
+            "command": "cmake ..",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "problemMatcher": [],
+            "dependsOn": "clean"
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "cmake --build .",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "problemMatcher": [],
+            "dependsOn": "configure"
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "./dotto-cpp.exe",
+            "options": {
+                "cwd": "${workspaceFolder}/build/bin"
+            },
+            "problemMatcher": [],
+            "dependsOn": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+    ]
+}
