@@ -15,5 +15,5 @@ struct SettingsData {
   SettingsData() = default;
 
   void edit();
-  void print() const;
+  void tabulate() const;
 };
