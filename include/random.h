@@ -11,8 +11,8 @@ class Random {
    public:
     Random();
 
-    int getInt(int min, int max) const;
-    float getFloat(float min, float max) const;
+    int getInt(int min, int max);
+    float getFloat(float min, float max);
 
     // Public method to get singleton instance
     // static so it is only defined ONCE in the program

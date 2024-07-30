@@ -107,11 +107,11 @@ bool canPlaceBarrier(std::vector<std::vector<char>> const& field, std::pair<int,
         // If the coordinates are out of bounds or the cell is not empty, return false
         if (x < 0 || x >= field.size() || y < 0 || y >= field[0].size() || field[x][y] != '/') {
             canPlace = false;
-            return false;
+            return;
         }
         return;
     });
-    return true;
+    return canPlace;
 }
 
 /**
