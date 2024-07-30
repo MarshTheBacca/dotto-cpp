@@ -1,3 +1,6 @@
+#ifndef VALIDATION_TOOLS_H
+#define VALIDATION_TOOLS_H
+
 #include <optional>
 #include <string>
 
@@ -11,3 +14,5 @@ getValidString(const std::string &prompt, const int lower, const int upper,
 std::optional<std::pair<int, int>>
 getValidCoord(const std::string &prompt, const int length, const int width,
               const std::string &cancelString);
+
+#endif  // VALIDATION_TOOLS_H
