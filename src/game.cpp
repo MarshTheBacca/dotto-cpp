@@ -290,8 +290,8 @@ bool Game::usePowerup() {
             return false;
         }
         board.portals.emplace(coord_1.value(), coord_2.value());
-    } else if (chosenPowerup == "Double-Jump") {
-        return attemptMove({{0, 2}, {0, -2}, {2, 0}, {-2, 0}});
+    } else if (chosenPowerup == "Double-Jump" && !attemptMove({{0, 2}, {0, -2}, {2, 0}, {-2, 0}})) {
+        return false;
     } else if (chosenPowerup == "Destroyer" && !editCoord("Which barrier would you like to destroy?", '#', '/').has_value()) {
         return false;
     }
@@ -322,20 +322,25 @@ void Game::play() {
         board.show();
         std::cout << std::format("Player {}'s turn \t\t\tTurn: {}", turn, turnNumber) << std::endl;
         int option = getValidInt("What would you like to do? \n1) Move\n2) Delete a space\n3) Create a space\n4) Use a Powerup\n5) Concede", 1, 5);
+        // Clear the input buffer after reading the integer input
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
         //                                  D       A        S        W
         if (option == 1 && !attemptMove({{0, 1}, {0, -1}, {1, 0}, {-1, 0}})) {
             continue;
-        }
-
-        else if (option == 2 && !handleDeleteCreate("delete", deletes, "Which space would you like to delete?", '/', ' ')) {
+        } else if (option == 2 && !handleDeleteCreate("delete", deletes, "Which space would you like to delete?", '/', ' ')) {
             continue;
         } else if (option == 3 && !handleDeleteCreate("create", creates, "Which space would you like to create?", ' ', '/')) {
             continue;
         } else if (option == 4 && !usePowerup()) {
             continue;
-        } else if (option == 5 && confirm("Are you sure you want to concede?")) {
-            std::cout << "Player " << turn << " has conceded." << std::endl;
-            break;
+        } else if (option == 5) {
+            if (confirm("Are you sure you want to concede?")) {
+                std::cout << "Player " << turn << " has conceded." << std::endl;
+                break;
+            } else {
+                continue;
+            }
         }
         if (checkDefeat()) {
             board.show();
