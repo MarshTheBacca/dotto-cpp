@@ -5,7 +5,9 @@
 #include <optional>
 #include <random>
 #include <ranges>
+#include <set>
 
+#include "other_tools.h"
 #include "random.h"
 
 // Numbers in the triangle number sequence
@@ -21,9 +23,8 @@ const auto LETTERS = std::vector<char>{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', '
  * @return A random coordinate
  */
 std::pair<int, int> generateRandomCoord(const int length, const int width) {
-    return std::pair<int, int>(
-        Random::getInstance().getInt(0, length - 1),
-        Random::getInstance().getInt(0, width - 1));
+    return std::pair<int, int>(Random::getInstance().getInt(0, length - 1),
+                               Random::getInstance().getInt(0, width - 1));
 }
 /**
  * @brief Rotates the field 180 degrees (in-place)
@@ -82,7 +83,7 @@ std::set<std::pair<int, int>> randomReplace(std::vector<std::vector<char>>& fiel
     std::set<std::pair<int, int>> returnCoords;
 
     while (iterations < MAXITERATIONS && numToReplace > 0) {
-        auto [x, y] = generateRandomCoord(field.size(), field[0].size());
+        auto [x, y] = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
         // We can initialise col here because it is only needed in the if statement
         if (field[x][y] == oldChar) {
             field[x][y] = newChar;
@@ -102,7 +103,7 @@ std::set<std::pair<int, int>> randomReplace(std::vector<std::vector<char>>& fiel
  * @return True if the barrier can be placed, false otherwise
  */
 bool canPlaceBarrier(std::vector<std::vector<char>> const& field, std::pair<int, int> const& baseCoord,
-                     std::vector<std::pair<int, int>> const& barrierShape) {
+                     std::set<std::pair<int, int>> const& barrierShape) {
     bool canPlace = true;
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
         const auto& [dx, dy] = coord;
@@ -126,14 +127,12 @@ bool canPlaceBarrier(std::vector<std::vector<char>> const& field, std::pair<int,
  */
 void placeBarrier(std::vector<std::vector<char>>& field,
                   const std::pair<int, int>& baseCoord,
-                  const std::vector<std::pair<int, int>>& barrierShape,
+                  const std::set<std::pair<int, int>>& barrierShape,
                   std::set<std::pair<int, int>>& barrierCoords) {
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
-        const auto& [dx, dy] = coord;
-        int x = baseCoord.first + dx;
-        int y = baseCoord.second + dy;
-        field[x][y] = '#';
-        barrierCoords.emplace(x, y);
+        const auto barrierCoord = vectorAddition(baseCoord, coord);
+        field[barrierCoord.first][barrierCoord.second] = '#';
+        barrierCoords.emplace(barrierCoord);
     });
 }
 
@@ -145,23 +144,23 @@ void placeBarrier(std::vector<std::vector<char>>& field,
  * @note This function is not guaranteed to place the exact number of
  * barriers if no free spaces are available
  */
-std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<char>> field,
+std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<char>>& field,
                                             SettingsData const& settings) {
     //   #       #     #     #
     //   # # #   # #   #   # #
     //           #     #
-    std::vector<std::vector<std::pair<int, int>>> barrierLayouts = {{{0, 0}, {1, 0}, {0, 1}, {0, 2}},
-                                                                    {{0, 0}, {1, 0}, {0, 1}, {-1, 0}},
-                                                                    {{0, 0}, {1, 0}, {-1, 0}},
-                                                                    {{0, 0}, {0, -1}, {1, 0}}};
+    std::set<std::set<std::pair<int, int>>> barrierLayouts = {{{0, 0}, {1, 0}, {0, 1}, {0, 2}},
+                                                              {{0, 0}, {1, 0}, {0, 1}, {-1, 0}},
+                                                              {{0, 0}, {1, 0}, {-1, 0}},
+                                                              {{0, 0}, {0, -1}, {1, 0}}};
     int barriersToPlace = (settings.length / settings.barrierDensity) * (settings.width / settings.barrierDensity);
     const int MAXITERATIONS = 1000;
     int numIterations = 0;
     std::set<std::pair<int, int>> barrierCoords;
 
     while (barriersToPlace > 0 && numIterations < MAXITERATIONS) {
-        std::pair<int, int> randCoord = generateRandomCoord(field.size(), field[0].size());
-        const auto& randBarrier = barrierLayouts[Random::getInstance().getInt(0, barrierLayouts.size() - 1)];
+        std::pair<int, int> randCoord = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
+        const auto& randBarrier = *std::next(barrierLayouts.begin(), Random::getInstance().getInt(0, static_cast<int>(barrierLayouts.size()) - 1));
         if (canPlaceBarrier(field, randCoord, randBarrier)) {
             placeBarrier(field, randCoord, randBarrier, barrierCoords);
             barriersToPlace--;
