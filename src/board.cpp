@@ -8,8 +8,12 @@
 
 #include "random.h"
 
+// Numbers in the triangle number sequence
 const auto TRIANGLENUMS = std::vector<int>{1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 91, 105};
+
+// Letters to use when displaying the field (11 total)
 const auto LETTERS = std::vector<char>{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'};
+
 /**
  * @brief Generates a random coordinate
  * @param length The length of the field
@@ -70,19 +74,19 @@ void placeDots(std::vector<std::vector<char>>& field, const char& dotChar, int d
  * @note This function is not guaranteed to replace the exact number of
  * characters if no free spaces are available
  */
-std::vector<std::pair<int, int>> randomReplace(std::vector<std::vector<char>>& field,
-                                               int numToReplace, const char& oldChar,
-                                               const char& newChar) {
+std::set<std::pair<int, int>> randomReplace(std::vector<std::vector<char>>& field,
+                                            int numToReplace, const char& oldChar,
+                                            const char& newChar) {
     const int MAXITERATIONS = 100;
     int iterations = 0;
-    std::vector<std::pair<int, int>> returnCoords;
+    std::set<std::pair<int, int>> returnCoords;
 
     while (iterations < MAXITERATIONS && numToReplace > 0) {
         auto [x, y] = generateRandomCoord(field.size(), field[0].size());
         // We can initialise col here because it is only needed in the if statement
         if (field[x][y] == oldChar) {
             field[x][y] = newChar;
-            returnCoords.push_back({x, y});
+            returnCoords.emplace(x, y);
             numToReplace--;
         }
         iterations++;
@@ -120,13 +124,16 @@ bool canPlaceBarrier(std::vector<std::vector<char>> const& field, std::pair<int,
  * @param baseCoord The base coordinate to place the barrier
  * @param barrierShape The shape of the barrier
  */
-void placeBarrier(std::vector<std::vector<char>>& field, const std::pair<int, int>& baseCoord, const std::vector<std::pair<int, int>>& barrierShape, std::vector<std::pair<int, int>>& barrierCoords) {
+void placeBarrier(std::vector<std::vector<char>>& field,
+                  const std::pair<int, int>& baseCoord,
+                  const std::vector<std::pair<int, int>>& barrierShape,
+                  std::set<std::pair<int, int>>& barrierCoords) {
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
         const auto& [dx, dy] = coord;
         int x = baseCoord.first + dx;
         int y = baseCoord.second + dy;
         field[x][y] = '#';
-        barrierCoords.push_back({x, y});
+        barrierCoords.emplace(x, y);
     });
 }
 
@@ -138,8 +145,8 @@ void placeBarrier(std::vector<std::vector<char>>& field, const std::pair<int, in
  * @note This function is not guaranteed to place the exact number of
  * barriers if no free spaces are available
  */
-std::vector<std::pair<int, int>> placeBarriers(std::vector<std::vector<char>> field,
-                                               SettingsData const& settings) {
+std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<char>> field,
+                                            SettingsData const& settings) {
     //   #       #     #     #
     //   # # #   # #   #   # #
     //           #     #
@@ -150,7 +157,7 @@ std::vector<std::pair<int, int>> placeBarriers(std::vector<std::vector<char>> fi
     int barriersToPlace = (settings.length / settings.barrierDensity) * (settings.width / settings.barrierDensity);
     const int MAXITERATIONS = 1000;
     int numIterations = 0;
-    std::vector<std::pair<int, int>> barrierCoords;
+    std::set<std::pair<int, int>> barrierCoords;
 
     while (barriersToPlace > 0 && numIterations < MAXITERATIONS) {
         std::pair<int, int> randCoord = generateRandomCoord(field.size(), field[0].size());
@@ -175,9 +182,10 @@ Board::Board(SettingsData const& settingsData) : field(std::vector<std::vector<c
     placeDots(field, 'X', settingsData.numDots);
     rotateField(field);
     placeDots(field, 'O', settingsData.numDots);
-    std::vector<std::pair<int, int>> powerupCoords = randomReplace(field, settingsData.numInitialPowerups, '/', '?');
-    std::vector<std::pair<int, int>> barrierCoords = placeBarriers(field, settingsData);
-    std::vector<std::pair<int, int>> crumbliesCoords = randomReplace(field, settingsData.numInitialCrumblies, '/', '~');
+    powerupCoords = randomReplace(field, settingsData.numInitialPowerups, '/', '?');
+    barrierCoords = placeBarriers(field, settingsData);
+    crumbliesCoords = randomReplace(field, settingsData.numInitialCrumblies, '/', '~');
+    dotCoords = {{1, scanCharCoords('O')}, {2, scanCharCoords('X')}};
 }
 
 /**
@@ -185,8 +193,8 @@ Board::Board(SettingsData const& settingsData) : field(std::vector<std::vector<c
  * @param targetChar The character to scan for
  * @return A vector of coordinates with the character
  */
-std::vector<std::pair<int, int>> Board::scanCharCoords(const char& targetChar) const {
-    std::vector<std::pair<int, int>> coords;
+std::set<std::pair<int, int>> Board::scanCharCoords(const char& targetChar) const {
+    std::set<std::pair<int, int>> coords;
     // Track indexes as it is more efficient than pointer arithmetic
     int rowIndex = 0;
     // Use for_each for better readability
@@ -194,7 +202,7 @@ std::vector<std::pair<int, int>> Board::scanCharCoords(const char& targetChar) c
         int colIndex = 0;
         std::ranges::for_each(row, [&](const auto& cell) {
             if (cell == targetChar) {
-                coords.emplace_back(rowIndex, colIndex);
+                coords.emplace(rowIndex, colIndex);
             }
             ++colIndex;
         });
@@ -203,14 +211,22 @@ std::vector<std::pair<int, int>> Board::scanCharCoords(const char& targetChar) c
     return coords;
 }
 
+/**
+ * @brief Places a powerup on the field in a random location
+ * @note this function may not place the powerup if no free spaces are available,
+ * maximum of 100 iterations to attempt placement
+ */
 void Board::placePowerup() {
     std::mt19937 generator(std::random_device{}());
     std::pair<int, int> coord = generateRandomCoord(length, width);
-    while (field[coord.first][coord.second] != '/') {
+    int MAXITERS = 100;
+    int iters = 0;
+    while (field[coord.first][coord.second] != '/' && iters < MAXITERS) {
         coord = generateRandomCoord(length, width);
+        iters++;
     }
     field[coord.first][coord.second] = '?';
-    powerups.push_back(coord);
+    powerupCoords.emplace(coord);
 }
 
 /**
@@ -235,15 +251,15 @@ bool Board::isWithinBounds(const std::pair<int, int>& coord) const {
  * @brief Displays the field
  */
 void Board::show() const {
-    std::cout << std::endl;
+    std::cout << "\n";
     for (int i = 0; i < field.size(); i++) {
         std::cout << LETTERS[i] << "\t";
         for (int j = 0; j < field[0].size(); j++) {
             std::cout << field[i][j] << "\t";
         }
-        std::cout << std::endl;
+        std::cout << "\n";
     }
-    std::cout << std::endl;
+    std::cout << "\n";
     std::cout << "\t";
     for (int i = 1; i <= width; i++) {
         if (width > 9 && i < 10) {
@@ -251,4 +267,23 @@ void Board::show() const {
         }
         std::cout << i << "\t";
     }
+    std::cout << std::endl;
+}
+
+/**
+ * @brief Gets the character at a coordinate
+ * @param coord The coordinate to get the character from
+ * @return The character at the coordinate
+ */
+char Board::getChar(const std::pair<int, int>& coord) const {
+    return field[coord.first][coord.second];
+}
+
+/**
+ * @brief Sets the character at a coordinate
+ * @param coord The coordinate to set the character at
+ * @param newChar The character to set
+ */
+void Board::setChar(const std::pair<int, int>& coord, const char& newChar) {
+    field[coord.first][coord.second] = newChar;
 }
