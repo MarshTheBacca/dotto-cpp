@@ -1,5 +1,8 @@
 #include "random.h"
 
+// Define the static member variable
+Random Random::instance;
+
 /**
  * @brief Construct a new Random::Random object
  * Initialize the random number generator with a seed
@@ -21,7 +24,7 @@ Random& Random::getInstance() {
  * @param max The maximum value
  * @return A random integer
  */
-int Random::getInt(int min, int max) const {
+int Random::getInt(int min, int max) {
     std::uniform_int_distribution dist(min, max);
     return dist(generator);
 }
@@ -32,7 +35,7 @@ int Random::getInt(int min, int max) const {
  * @param max The maximum value
  * @return A random float
  */
-float Random::getFloat(float min, float max) const {
+float Random::getFloat(float min, float max) {
     std::uniform_real_distribution dist(min, max);
     return dist(generator);
 }
