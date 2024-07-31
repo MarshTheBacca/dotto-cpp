@@ -168,6 +168,6 @@ std::optional<std::pair<int, int>> getValidCoord(const std::string &prompt, int 
             std::cout << "Coordinate is out of bounds\n";
             continue;
         }
-        return std::make_pair(y, x);
+        return std::make_pair(x, y);
     }
 }
