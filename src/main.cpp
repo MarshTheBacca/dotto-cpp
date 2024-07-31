@@ -1,4 +1,3 @@
-#include <getopt.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -6,11 +5,11 @@
 #include <filesystem>
 #include <iostream>
 
+#include "game.h"
+#include "globals.h"
+#include "other_tools.h"
 #include "settings_data.h"
 #include "validation_tools.h"
-
-// Global exit flag to cleanly exit when we use ctrl + c
-const std::atomic<bool> exitFlag(false);
 
 using LoggerPtr = std::shared_ptr<spdlog::logger>;
 
@@ -32,22 +31,30 @@ LoggerPtr initialiseLogger() {
     return logger;
 }
 
+/**
+ * @brief Main function of the program
+ */
 int main() {
     LoggerPtr logger = initialiseLogger();
     auto settingsData = SettingsData();
-    logger->info("Hello World");
     while (true) {
-        int option = getValidInt("What would you like to do? \n1) Play\n2) Edit settings\n4) View scores\n5) Exit", 1, 5);
-        if (option == 5) {
-            return 0;
-        } else if (option == 1) {
-            return 0;
-        } else if (option == 2) {
-            settingsData.edit();
-        } else if (option == 3) {
-            return 0;
-        } else if (option == 4) {
-            return 0;
+        int option = getValidInt("What would you like to do? \n1) Play\n2) Edit settings\n3) View scores\n4) Exit", 1, 4);
+        switch (option) {
+            case 1: {
+                Game game(settingsData);
+                game.play();
+                break;
+            }
+            case 2: {
+                settingsData.edit();
+                break;
+            }
+            case 3: {
+                showScores(import2D(SCORESPATH));
+                break;
+            }
+            case 4:
+                return 0;
         }
     }
 }
