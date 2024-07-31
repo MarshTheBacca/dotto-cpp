@@ -27,7 +27,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cmake --build .",
+            "command": "cmake --build . -j `nproc`",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },
