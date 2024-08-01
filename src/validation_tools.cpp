@@ -19,10 +19,10 @@
  * @param str The string to trim
  * @return The trimmed string
  */
-std::string trimWhite(const std::string &str) {
+std::string trimWhite(const std::string &str) {  // cant be std::string_view because we compare it to std::string::npos
     // Find start and end of non-whitespace characters
-    auto start = str.find_first_not_of(" \t\n\r\f\v");
-    auto end = str.find_last_not_of(" \t\n\r\f\v");
+    const auto start = str.find_first_not_of(" \t\n\r\f\v");
+    const auto end = str.find_last_not_of(" \t\n\r\f\v");
     // Return substring from start to end
     return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
 }
@@ -53,6 +53,15 @@ int getValidInt(const std::string &prompt,
 }
 
 /**
+ * @brief Prompt input from the user and trim whitespace
+ */
+std::string getCleanInput() {
+    std::string input;
+    std::getline(std::cin, input);
+    return trimWhite(input);
+}
+
+/**
  * @brief Get a yes or no answer from the user, no option to cancel
  * @param prompt The prompt to display to the user
  * @return True if the user enters 'y', false if the user enters 'n'
@@ -61,22 +70,14 @@ bool confirm(const std::string &prompt) {
     // Create an unordered set that uses our custom hash and equality functions
     // They enable heterogeneous lookup for std::string and std::string_view,
     // allowing for transparent conversion between the two types
-    const std::unordered_set<std::string, TransparentHasher, TransparentEqual>
-        validInputs = {"y", "n"};
-
+    const std::unordered_set<std::string, TransparentHasher, TransparentEqual> validInputs = {"y", "n"};
     while (true) {
         std::cout << prompt << " (y/n):\n";
-        std::string input;
-        std::getline(std::cin, input);
-
-        // Trim leading and trailing whitespace
-        input = trimWhite(input);
-
+        std::string input = getCleanInput();
         if (input.empty()) {
             std::cout << "Input cannot be empty. Please enter y or n." << std::endl;
             continue;
         }
-
         // Convert input to lowercase
         std::ranges::transform(input, input.begin(), [](unsigned char c) { return std::tolower(c); });
 
@@ -104,11 +105,7 @@ std::optional<std::string> getValidString(const std::string &prompt, const int l
                                           const std::optional<std::set<char>> &forbidden = std::nullopt) {
     while (true) {
         std::cout << prompt << "\n";
-        std::string input;
-        std::getline(std::cin, input);
-
-        // Trim leading and trailing whitespace
-        input = trimWhite(input);
+        const std::string input = getCleanInput();
 
         if (input.empty()) {
             std::cout << "Input cannot be empty. Please enter a string." << std::endl;
@@ -152,18 +149,16 @@ std::optional<std::string> getValidString(const std::string &prompt, const int l
  */
 std::optional<std::pair<int, int>> getValidCoord(const std::string &prompt, int length, int width) {
     while (true) {
-        std::string coord;
         std::cout << prompt << ". Enter coordinate (e.g. 1A, 'c' to cancel):\n";
-        std::cin >> coord;
+        const std::string coord = getCleanInput();
         if (coord == "c") {
             return std::nullopt;
         }
-        coord = trimWhite(coord);
         if (!std::regex_match(coord, std::regex(R"(^\d+[A-Z]+$)"))) {
             std::cout << "Invalid coordinate format\n";
             continue;
         }
-        auto [x, y] = stringToCoord(coord);
+        const auto [x, y] = stringToCoord(coord);
         if (x < 0 || x >= width || y < 0 || y >= length) {
             std::cout << "Coordinate is out of bounds\n";
             continue;
