@@ -51,14 +51,14 @@ std::pair<int, int> stringToCoord(const std::string& coordStr) {
     }
 
     // Convert row part to integer and adjust
-    int rowNum = std::stoi(rowStr) - 1;
+    const int rowNum = std::stoi(rowStr) - 1;
 
     // Convert column part to integer
     std::ranges::transform(colStr, colStr.begin(), ::toupper);
-    int colNum = std::accumulate(colStr.begin(), colStr.end(), 0, [](int sum, char currentChar) {
-                     return sum * 26 + (currentChar - 'A' + 1);
-                 }) -
-                 1;
+    const int colNum = std::accumulate(colStr.begin(), colStr.end(), 0, [](int sum, const char& currentChar) {
+                           return sum * 26 + (currentChar - 'A' + 1);
+                       }) -
+                       1;
 
     return {colNum, rowNum};
 }
@@ -110,7 +110,7 @@ void export2D(const std::filesystem::path& path, const std::vector<std::vector<s
         throw std::runtime_error("Could not open file: " + path.string());
     }
     for (const auto& row : array) {
-        for (size_t i = 0; i < row.size(); ++i) {
+        for (std::size_t i = 0; i < row.size(); ++i) {
             file << row[i];
             if (i < row.size() - 1) {
                 file << ",";  // only add comma if not the last element

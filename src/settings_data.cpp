@@ -24,7 +24,7 @@ void SettingsData::edit() {
 
     while (true) {
         tabulate();
-        int option = getValidInt("What would you like to edit? (10 to exit)", 1, 10);
+        const int option = getValidInt("What would you like to edit? (10 to exit)", 1, 10);
         if (option == 10) {
             break;
         }
