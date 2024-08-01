@@ -4,6 +4,7 @@ add_executable(dotto-cpp.exe)
 # Add source files
 target_sources(dotto-cpp.exe PRIVATE
     board.cpp
+    cell.cpp
     game.cpp
     globals.cpp
     main.cpp
