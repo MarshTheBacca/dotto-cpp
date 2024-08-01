@@ -16,7 +16,7 @@
 #include "random.h"
 #include "validation_tools.h"
 
-const std::map<int, char> DOTCHARS = {{1, 'O'}, {2, 'X'}};
+const std::map<int, Cell> DOT_CELLS = {{1, PLAYER_1_CELL}, {2, PLAYER_2_CELL}};
 const std::map<char, std::string, std::less<>> DIRECTIONS{{'D', "Right"}, {'A', "Left"}, {'S', "Down"}, {'W', "Up"}};
 const std::vector<std::string> POWERUPS{"Portal", "Double-Jump", "Destroyer"};
 
@@ -35,10 +35,10 @@ Game::Game(const SettingsData &settingsData) : settings(settingsData),
 /**
  * @brief Prompts the user for a valid coordinate and edits it appropriately
  * @param prompt The prompt to display to the user
- * @param targetChar The character to check for at the coordinate
- * @param newChar The character to replace the targetChar with
+ * @param targetCell The character to check for at the coordinate
+ * @param newCell The character to replace the targetCell with
  */
-std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt, const char &targetChar, const char &newChar) {
+std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt, const Cell &targetCell, const Cell &newCell) {
     std::optional<std::pair<int, int>> coord;
     while (true) {
         coord = getValidCoord(prompt, settings.length, settings.width);
@@ -46,11 +46,11 @@ std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt, co
             return std::nullopt;
         }
         // .value() returns the value of coord if it isn't std::nullopt, and throws an error otherwise
-        if (board.getChar(coord.value()) == targetChar) {
-            board.setChar(coord.value(), newChar);
+        if (board.getCell(coord.value()) == targetCell) {
+            board.setCell(coord.value(), newCell);
             return coord;
         }
-        std::cout << "Coordinate does not correspond to " << targetChar << std::endl;
+        std::cout << "Coordinate does not correspond to " << targetCell.repr() << std::endl;
     }
 }
 
@@ -90,7 +90,6 @@ std::optional<std::pair<int, int>> Game::getDestination(const std::map<char, std
     prompt << "\nC) Cancel";
     std::set<char> accepted = {'C', 'c'};
     std::cout << prompt.str() << std::endl;
-    showMoves(moves);
     for (const auto &[key, _] : moves) {
         accepted.insert(key);
         accepted.emplace(static_cast<char>(std::tolower(key)));
@@ -116,12 +115,12 @@ std::optional<std::pair<int, int>> Game::calculateMove(const std::pair<int, int>
     if (!board.isWithinBounds(newPos)) {
         return std::nullopt;
     }
-    std::set<char> allowedChars = {'/', ' ', '?', '~', '@', getTargetChar()};
+    std::set<Cell> allowedCells = {REGULAR_CELL, BLANK_CELL, POWERUP_CELL, CRUMBLY_CELL, PORTAL_CELL, getTargetCell()};
     // If the new position is not one of the allowed characters, return std::nullopt
-    if (const char destinationChar = board.getChar(newPos); !allowedChars.contains(destinationChar)) {
+    if (const Cell destinationCell = board.getCell(newPos); !allowedCells.contains(destinationCell)) {
         return std::nullopt;
         // If the new position is a blank space, calculate the move again in the same direction, effectively hopping over the space
-    } else if (destinationChar == ' ') {
+    } else if (destinationCell == BLANK_CELL) {
         return calculateMove(newPos, vector);
     }
     return std::make_optional(newPos);  // have to convert to optional to agree with return type
@@ -136,7 +135,7 @@ std::optional<std::pair<int, int>> Game::calculateMove(const std::pair<int, int>
 std::pair<int, int> Game::updatePortals(const std::pair<int, int> &coord) {
     for (const auto &portal : board.portals) {
         if (portal.isMember(coord)) {
-            board.replaceChar(coord, '/');
+            board.replaceCell(coord, REGULAR_CELL);
             std::pair<int, int> destination = portal.getOpposite(coord);
             // remove portal from the set of portals
             board.portals.erase(portal);
@@ -156,24 +155,24 @@ std::pair<int, int> Game::updatePortals(const std::pair<int, int> &coord) {
 void Game::processMove(const std::pair<int, int> &origin, std::pair<int, int> &destination) {
     if (board.crumbliesCoords.contains(origin)) {
         board.crumbliesCoords.erase(origin);
-        board.replaceChar(origin, ' ');
+        board.replaceCell(origin, BLANK_CELL);
     } else {
-        board.replaceChar(origin, '/');
+        board.replaceCell(origin, REGULAR_CELL);
     }
-    if (char destinationChar = board.getChar(destination); destinationChar == '?') {
+    if (Cell destinationCell = board.getCell(destination); destinationCell == POWERUP_CELL) {
         // add random powerup to user's inventory
         std::string newPowerup = POWERUPS.at(Random::getInstance().getInt(0, POWERUPS.size() - 1));
         inventory.at(turn).push_back(newPowerup);
         std::cout << std::format("Player {} has found a {}!", turn, newPowerup) << std::endl;
-    } else if (destinationChar == '@') {
+    } else if (destinationCell == PORTAL_CELL) {
         destination = updatePortals(destination);
-    } else if (destinationChar == '~') {
+    } else if (destinationCell == CRUMBLY_CELL) {
         board.crumbliesCoords.emplace(destination);
-    } else if (destinationChar == getTargetChar()) {
+    } else if (destinationCell == getTargetCell()) {
         // capture their piece
         board.dotCoords.at(3 - turn).erase(destination);
     }
-    board.replaceChar(destination, getAllyChar());
+    board.replaceCell(destination, getAllyCell());
     board.dotCoords.at(turn).erase(origin);
     board.dotCoords.at(turn).emplace(destination);
     // sets in C++ are already sorted, so no need to resort the dotCoords
@@ -242,16 +241,16 @@ bool Game::checkDefeat() const {
  * @param actionName The name of the action to display to the user
  * @param countDict The dictionary of the number of actions left for each player
  * @param prompt The prompt to display to the user
- * @param targetChar The character to check for at the coordinate
- * @param newChar The character to replace the targetChar with
+ * @param targetCell The character to check for at the coordinate
+ * @param newCell The character to replace the targetCell with
  */
 bool Game::handleDeleteCreate(const std::string_view &actionName, std::map<int, int> &countDict, const std::string &prompt,
-                              const char targetChar, const char newChar) {
+                              const Cell &targetCell, const Cell &newCell) {
     if (countDict.at(turn) == 0) {
         std::cout << "You ran out of " << actionName << "s." << std::endl;
         return false;
     }
-    if (!editCoord(prompt, targetChar, newChar).has_value()) {
+    if (!editCoord(prompt, targetCell, newCell).has_value()) {
         return false;
     }
     countDict.at(turn) -= 1;
@@ -280,19 +279,19 @@ bool Game::usePowerup() {
         return false;
     }
     if (std::string chosenPowerup = inventory.at(turn).at(choice - 1); chosenPowerup == "Portal") {
-        std::optional<std::pair<int, int>> coord_1 = editCoord("Enter the first portal coordinate", '/', '@');
+        std::optional<std::pair<int, int>> coord_1 = editCoord("Enter the first portal coordinate", REGULAR_CELL, PORTAL_CELL);
         if (!coord_1.has_value()) {
             return false;
         }
-        std::optional<std::pair<int, int>> coord_2 = editCoord("Enter the second portal coordinate", '/', '@').value();
+        std::optional<std::pair<int, int>> coord_2 = editCoord("Enter the second portal coordinate", REGULAR_CELL, PORTAL_CELL).value();
         if (!coord_2.has_value()) {
-            board.replaceChar(coord_1.value(), ' ');  // undo the first portal
+            board.replaceCell(coord_1.value(), BLANK_CELL);  // undo the first portal
             return false;
         }
         board.portals.emplace(coord_1.value(), coord_2.value());
     } else if (chosenPowerup == "Double-Jump" && !attemptMove({{0, 2}, {0, -2}, {2, 0}, {-2, 0}})) {
         return false;
-    } else if (chosenPowerup == "Destroyer" && !editCoord("Which barrier would you like to destroy?", '#', '/').has_value()) {
+    } else if (chosenPowerup == "Destroyer" && !editCoord("Which barrier would you like to destroy?", BARRIER_CELL, REGULAR_CELL).has_value()) {
         return false;
     }
     inventory.at(turn).erase(inventory.at(turn).begin() + choice - 1);
@@ -328,9 +327,9 @@ void Game::play() {
         //                                  D       A        S        W
         if (option == 1 && !attemptMove({{0, 1}, {0, -1}, {1, 0}, {-1, 0}})) {
             continue;
-        } else if (option == 2 && !handleDeleteCreate("delete", deletes, "Which space would you like to delete?", '/', ' ')) {
+        } else if (option == 2 && !handleDeleteCreate("delete", deletes, "Which space would you like to delete?", REGULAR_CELL, BLANK_CELL)) {
             continue;
-        } else if (option == 3 && !handleDeleteCreate("create", creates, "Which space would you like to create?", ' ', '/')) {
+        } else if (option == 3 && !handleDeleteCreate("create", creates, "Which space would you like to create?", BLANK_CELL, REGULAR_CELL)) {
             continue;
         } else if (option == 4 && !usePowerup()) {
             continue;
@@ -357,13 +356,13 @@ void Game::play() {
 /**
  * @brief Gets the character of the current player
  */
-char Game::getTargetChar() const {
-    return DOTCHARS.at(3 - turn);
+Cell Game::getTargetCell() const {
+    return DOT_CELLS.at(3 - turn);
 }
 
 /**
  * @brief Gets the character of the current opponent
  */
-char Game::getAllyChar() const {
-    return DOTCHARS.at(turn);
+Cell Game::getAllyCell() const {
+    return DOT_CELLS.at(turn);
 }

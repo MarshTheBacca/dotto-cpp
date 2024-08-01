@@ -22,7 +22,7 @@ struct Game {
 
     explicit Game(const SettingsData &settingsData);
 
-    std::optional<std::pair<int, int>> editCoord(const std::string &prompt, const char &targetChar, const char &newChar);
+    std::optional<std::pair<int, int>> editCoord(const std::string &prompt, const Cell &targetCell, const Cell &newCell);
     std::optional<std::pair<int, int>> getOrigin() const;
     std::optional<std::pair<int, int>> getDestination(const std::map<char, std::pair<int, int>, std::less<>> &moves) const;
 
@@ -35,13 +35,13 @@ struct Game {
     bool checkDefeat() const;
 
     bool handleDeleteCreate(const std::string_view &actionName, std::map<int, int> &countDict, const std::string &prompt,
-                            const char targetChar, const char newChar);
+                            const Cell &targetCell, const Cell &newCell);
     bool usePowerup();
     void scoreSave();
     void play();
 
-    char getTargetChar() const;
-    char getAllyChar() const;
+    Cell getTargetCell() const;
+    Cell getAllyCell() const;
 };
 
 #endif  // GAME_H
