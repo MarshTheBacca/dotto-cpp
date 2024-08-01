@@ -5,11 +5,21 @@
 #include <set>
 #include <vector>
 
+#include "cell.h"
 #include "portal.h"
 #include "settings_data.h"
 
+const Cell BLANK_CELL = Cell(' ', RESET);
+const Cell REGULAR_CELL = Cell('/', RESET);
+const Cell PLAYER_1_CELL = Cell('O', BLUE);
+const Cell PLAYER_2_CELL = Cell('O', RED);
+const Cell POWERUP_CELL = Cell('?', PINK);
+const Cell BARRIER_CELL = Cell('#', RESET);
+const Cell CRUMBLY_CELL = Cell('~', RESET);
+const Cell PORTAL_CELL = Cell('@', PURPLE);
+
 struct Board {
-    std::vector<std::vector<char>> field;
+    std::vector<std::vector<Cell>> field;
     const int length;
     const int width;
     std::set<std::pair<int, int>> crumbliesCoords;
@@ -20,13 +30,13 @@ struct Board {
 
     explicit Board(SettingsData const &settingsData);
 
-    std::set<std::pair<int, int>> scanCharCoords(const char &c) const;
+    std::set<std::pair<int, int>> scanCellCoords(const Cell &targetCell) const;
     void placePowerup();
-    void replaceChar(std::pair<int, int> coord, const char &newChar);
+    void replaceCell(std::pair<int, int> coord, const Cell &newCell);
     bool isWithinBounds(const std::pair<int, int> &coord) const;
     void show() const;
-    char getChar(const std::pair<int, int> &coord) const;
-    void setChar(const std::pair<int, int> &coord, const char &newChar);
+    Cell getCell(const std::pair<int, int> &coord) const;
+    void setCell(const std::pair<int, int> &coord, const Cell &newCell);
 };
 
 #endif  // BOARD_H
