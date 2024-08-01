@@ -9,6 +9,7 @@ target_sources(dotto-cpp.exe PRIVATE
     globals.cpp
     main.cpp
     other_tools.cpp
+    player.cpp
     random.cpp
     settings_data.cpp
     validation_tools.cpp
