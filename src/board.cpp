@@ -22,7 +22,7 @@ const auto LETTERS = std::vector<char>{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', '
  * @param width The width of the field
  * @return A random coordinate
  */
-std::pair<int, int> generateRandomCoord(const int length, const int width) {
+std::pair<int, int> generateRandomCoord(const int& length, const int& width) {
     return std::pair<int, int>(Random::getInstance().getInt(0, length - 1),
                                Random::getInstance().getInt(0, width - 1));
 }
@@ -31,13 +31,10 @@ std::pair<int, int> generateRandomCoord(const int length, const int width) {
  * @param field The field to rotate
  */
 void rotateField(std::vector<std::vector<Cell>>& field) {
-    std::vector<std::vector<Cell>> newField(field.size(), std::vector<Cell>(field[0].size()));
-    for (int i = 0; i < field.size(); i++) {
-        for (int j = 0; j < field[0].size(); j++) {
-            newField[field.size() - i - 1][field[0].size() - j - 1] = field[i][j];
-        }
-    }
-    field = newField;
+    std::ranges::for_each(field, [](auto& row) {
+        std::ranges::reverse(row);
+    });
+    std::ranges::reverse(field);
 }
 
 /**
@@ -56,11 +53,12 @@ void placeDots(std::vector<std::vector<Cell>>& field, const Cell& dotCell, int d
     }
     std::ranges::for_each(field, [&](auto& row) {
         // Pipe operator essentially truncates the row to the first maxNumDotsInRow elements
-        std::ranges::for_each(row | std::views::take(maxNumDotsInRow), [&](auto& cell) {
-            if (dotsToPlace != 0) {
-                cell = dotCell;
-                dotsToPlace--;
+        std::ranges::for_each(row | std::views::take(maxNumDotsInRow), [&dotsToPlace, &dotCell](auto& cell) {
+            if (dotsToPlace == 0) {
+                return;
             }
+            cell = dotCell;
+            dotsToPlace--;
         });
         maxNumDotsInRow--;
     });
@@ -83,7 +81,7 @@ std::set<std::pair<int, int>> randomReplace(std::vector<std::vector<Cell>>& fiel
     std::set<std::pair<int, int>> returnCoords;
 
     while (iterations < MAXITERATIONS && numToReplace > 0) {
-        auto [x, y] = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
+        const auto [x, y] = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
         // We can initialise col here because it is only needed in the if statement
         if (field[x][y] == oldCell) {
             field[x][y] = newCell;
@@ -106,9 +104,7 @@ bool canPlaceBarrier(std::vector<std::vector<Cell>> const& field, std::pair<int,
                      std::set<std::pair<int, int>> const& barrierShape) {
     bool canPlace = true;
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
-        const auto& [dx, dy] = coord;
-        int x = baseCoord.first + dx;
-        int y = baseCoord.second + dy;
+        const auto [x, y] = vectorAddition(baseCoord, coord);
         // If the coordinates are out of bounds or the cell is not empty, return false
         if (x < 0 || x >= field.size() || y < 0 || y >= field[0].size() || field[x][y] != REGULAR_CELL) {
             canPlace = false;
@@ -125,15 +121,16 @@ bool canPlaceBarrier(std::vector<std::vector<Cell>> const& field, std::pair<int,
  * @param baseCoord The base coordinate to place the barrier
  * @param barrierShape The shape of the barrier
  */
-void placeBarrier(std::vector<std::vector<Cell>>& field,
-                  const std::pair<int, int>& baseCoord,
-                  const std::set<std::pair<int, int>>& barrierShape,
-                  std::set<std::pair<int, int>>& barrierCoords) {
+std::set<std::pair<int, int>> placeBarrier(std::vector<std::vector<Cell>>& field,
+                                           const std::pair<int, int>& baseCoord,
+                                           const std::set<std::pair<int, int>>& barrierShape) {
+    std::set<std::pair<int, int>> barrierCoords;
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
         const auto barrierCoord = vectorAddition(baseCoord, coord);
         field[barrierCoord.first][barrierCoord.second] = BARRIER_CELL;
         barrierCoords.emplace(barrierCoord);
     });
+    return barrierCoords;
 }
 
 /**
@@ -162,7 +159,8 @@ std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<Cell>>& fiel
         std::pair<int, int> randCoord = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
         const auto& randBarrier = *std::next(barrierLayouts.begin(), Random::getInstance().getInt(0, static_cast<int>(barrierLayouts.size()) - 1));
         if (canPlaceBarrier(field, randCoord, randBarrier)) {
-            placeBarrier(field, randCoord, randBarrier, barrierCoords);
+            const std::set<std::pair<int, int>> newCoords = placeBarrier(field, randCoord, randBarrier);
+            barrierCoords.insert(newCoords.begin(), newCoords.end());
             barriersToPlace--;
         }
         numIterations++;
