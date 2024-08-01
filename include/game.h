@@ -9,16 +9,16 @@
 #include <vector>
 
 #include "board.h"
+#include "player.h"
 #include "settings_data.h"
 
 struct Game {
-    const SettingsData settings;                        // Settings of the game
-    Board board;                                        // Game board
-    std::map<int, std::vector<std::string>> inventory;  // Player inventories
-    std::map<int, int> deletes;                         // Number of deletes left for each player
-    std::map<int, int> creates;                         // Number of creates left for each player
-    int turnNumber;                                     // Current turn number
-    int turn;                                           // Current player's turn
+    const SettingsData settings;            // Settings of the game
+    Board board;                            // Game board
+    const std::shared_ptr<Player> player1;  // Player 1
+    const std::shared_ptr<Player> player2;  // Player 2
+    int turnNumber{1};                      // Current turn number
+    int turn{1};                            // Current player's turn
 
     explicit Game(const SettingsData &settingsData);
 
@@ -33,15 +33,14 @@ struct Game {
                                                                  const std::vector<std::pair<int, int>> &vectors) const;
     bool attemptMove(const std::vector<std::pair<int, int>> &vectors);
     bool checkDefeat() const;
-
-    bool handleDeleteCreate(const std::string_view &actionName, std::map<int, int> &countDict, const std::string &prompt,
-                            const Cell &targetCell, const Cell &newCell);
     bool usePowerup();
     void scoreSave();
     void play();
 
-    Cell getTargetCell() const;
-    Cell getAllyCell() const;
+    const Cell &getTargetCell() const;
+    const Cell &getAllyCell() const;
+    const std::shared_ptr<Player> &getTargetPlayer() const;
+    const std::shared_ptr<Player> &getAllyPlayer() const;
 };
 
 #endif  // GAME_H
