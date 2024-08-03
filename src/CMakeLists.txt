@@ -1,8 +1,8 @@
 # Create an executable
-add_executable(dotto-cpp.exe)
+add_executable(dotto-cpp)
 
 # Add source files
-target_sources(dotto-cpp.exe PRIVATE
+target_sources(dotto-cpp PRIVATE
     board.cpp
     cell.cpp
     game.cpp

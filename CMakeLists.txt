@@ -22,14 +22,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # Look for spdlog and tabulate libraries
-find_package(spdlog REQUIRED)
 find_package(tabulate REQUIRED)
 
 # Add subdirectory and execute CMakeLists.txt in that directory
 add_subdirectory(src)
 
 # Add include directory
-target_include_directories(dotto-cpp.exe BEFORE PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(dotto-cpp BEFORE PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 # Link against spdlog
-target_link_libraries(dotto-cpp.exe PRIVATE spdlog::spdlog_header_only tabulate::tabulate)
+target_link_libraries(dotto-cpp PRIVATE tabulate::tabulate)
