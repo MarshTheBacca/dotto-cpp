@@ -1,11 +1,14 @@
 #ifndef SETTINGS_DATA_H
 #define SETTINGS_DATA_H
 
+#include "enums.h"
+
 struct SettingsData {
+    Map map = Map::RANDOM;
     int length = 5;
     int width = 5;
     int numDots = 3;
-    int numInitialPowerups = 5;
+    int numInitialPowerups = 3;
     int powerupPlacementFrequency = 3;
     int numInitialCrumblies = 3;
     int barrierDensity = 4;

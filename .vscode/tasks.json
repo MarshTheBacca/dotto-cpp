@@ -35,14 +35,24 @@
             "dependsOn": "configure"
         },
         {
-            "label": "run",
+            "label": "installMaps",
             "type": "shell",
-            "command": "./dotto-cpp.exe",
+            "command": "cp -r ${workspaceFolder}/maps ${workspaceFolder}/build/bin",
             "options": {
                 "cwd": "${workspaceFolder}/build/bin"
             },
             "problemMatcher": [],
             "dependsOn": "build",
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "./dotto-cpp",
+            "options": {
+                "cwd": "${workspaceFolder}/build/bin"
+            },
+            "problemMatcher": [],
+            "dependsOn": "installMaps",
             "group": {
                 "kind": "build",
                 "isDefault": true

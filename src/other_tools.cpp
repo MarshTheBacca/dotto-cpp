@@ -16,6 +16,11 @@
 #include <utility>
 #include <vector>
 
+#include "cell.h"
+#include "globals.h"  // for the EXE_PATH variable
+#include "random.h"
+#include "validation_tools.h"
+
 /**
  * @brief Converts a pair of integers to a string in the format "A1", "B2", etc.
  * @param coord The pair of integers to convert
@@ -76,27 +81,72 @@ std::pair<int, int> vectorAddition(const std::pair<int, int>& vector_1, const st
 /**
  * @brief Imports a 2D vector from a CSV file
  * @param path The path to the CSV file
- * @return The 2D vector as a vector of vectors of strings
+ * @param processCell A function to process each cell in the CSV file
+ * @return The 2D vector
  */
-std::vector<std::vector<std::string>> import2D(const std::filesystem::path& path) {
-    std::vector<std::vector<std::string>> result;
+template <typename T>
+std::vector<std::vector<T>> import2DTemplate(const std::filesystem::path& path, std::function<T(const std::string&)> processCell) {
+    std::vector<std::vector<T>> result;
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cout << "Could not open file, returning empty vector: " << path << std::endl;
         return result;
     }
     std::string line;
-    while (std::getline(file, line)) {  // while loop will terminate at last line because it's empty
-        std::vector<std::string> row;
+    while (std::getline(file, line)) {
+        std::vector<T> row;
         std::stringstream ss(line);
         std::string cell;
         while (std::getline(ss, cell, ',')) {
-            row.push_back(cell);
+            row.push_back(processCell(cell));
         }
         result.push_back(row);
     }
     file.close();
     return result;
+}
+
+/**
+ * @brief Imports a 2D vector of strings from a CSV file
+ * @param path The path to the CSV file
+ * @return The 2D vector of strings
+ */
+std::vector<std::vector<std::string>> import2D(const std::filesystem::path& path) {
+    return import2DTemplate<std::string>(path, [](const std::string& cell) {
+        return cell;
+    });
+}
+
+/**
+ * @brief Imports a 2D vector of characters from a CSV file
+ * @param path The path to the CSV file
+ * @return The 2D vector of characters
+ */
+std::vector<std::vector<char>> importChar2D(const std::filesystem::path& path) {
+    return import2DTemplate<char>(path, [](const std::string& cell) {
+        return cell[0];
+    });
+}
+
+/**
+ * @brief Converts a map type to a string by reading from a file
+ * @param mapType The map type to convert
+ * @return The vector form of the map (field)
+ */
+std::vector<std::vector<Cell>> readMap(const Map& mapType) {
+    const std::filesystem::path mapPath = EXE_PATH / std::format("maps/{}.csv", mapToString(mapType));
+    auto map = importChar2D(mapPath);
+    std::vector<std::vector<Cell>> field;
+    field.reserve(map.size());  // Preallocate space for the outer vector
+    for (const auto& row : map) {
+        std::vector<Cell> fieldRow;
+        fieldRow.reserve(row.size());  // Preallocate space for the inner vector
+        for (const auto& character : row) {
+            fieldRow.push_back(charToCell(character));
+        }
+        field.push_back(fieldRow);
+    }
+    return field;
 }
 
 /**
@@ -163,4 +213,24 @@ void showMoves(const std::map<char, std::pair<int, int>, std::less<>>& moves) {
     for (const auto& [key, value] : moves) {
         std::cout << key << " : " << verboseCoord(value) << "\n";
     }
+}
+
+/**
+ * @brief Prompts the user to choose a map using an integer menu
+ * @returns The map type
+ */
+Map getValidMap() {
+    std::string prompt = "Choose a map:";
+    for (int i = 0; i < static_cast<int>(Map::COUNT); i++) {
+        prompt += std::format("\n{}) {}", i + 1, mapToString(static_cast<Map>(i)));
+    }
+    return static_cast<Map>(getValidInt(prompt, 1, static_cast<int>(Map::COUNT)) - 1);
+}
+
+/**
+ * @brief Generates a random powerup
+ * @return A random powerup
+ */
+Powerup generateRandomPowerup() {
+    return static_cast<Powerup>(Random::getInstance().getInt(0, static_cast<int>(Powerup::COUNT) - 1));
 }
