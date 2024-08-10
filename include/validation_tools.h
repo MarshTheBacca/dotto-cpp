@@ -4,6 +4,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 
 int getValidInt(const std::string &prompt, const int lower, const int upper);
 bool confirm(const std::string &prompt);

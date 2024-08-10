@@ -1,5 +1,3 @@
-#include <transparent.h>
-
 #include <algorithm>
 #include <cctype>
 #include <iostream>
@@ -20,6 +18,7 @@
  * @return The trimmed string
  */
 std::string trimWhite(const std::string &str) {  // cant be std::string_view because we compare it to std::string::npos
+                                                 // which is size_t
     // Find start and end of non-whitespace characters
     const auto start = str.find_first_not_of(" \t\n\r\f\v");
     const auto end = str.find_last_not_of(" \t\n\r\f\v");
@@ -28,8 +27,18 @@ std::string trimWhite(const std::string &str) {  // cant be std::string_view bec
 }
 
 /**
+ * @brief Prompt input from the user and trim whitespace
+ * @return The trimmed input as a string
+ */
+std::string getCleanInput() {
+    std::string input;
+    std::getline(std::cin, input);
+    return trimWhite(input);
+}
+
+/**
  * @brief Get a valid integer from the user
- * @param prompt The prompt to display to the user
+ * @param prompt The prompt to display to the user (no need for newline)
  * @param lower The lower bound of the valid range
  * @param upper The upper bound of the valid range
  * @return The valid integer
@@ -40,25 +49,16 @@ int getValidInt(const std::string &prompt,
     int value;
     while (true) {
         std::cout << prompt << "\n";
-        std::cin >> value;
-        if (std::cin.fail() || value < lower || value > upper) {
-            std::cin.clear();  // clear the error flag
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(),
-                            '\n');  // discard all characters until a newline is found
-            std::cout << "Invalid input. Please enter a valid integer.\n";
-        } else {
+        const std::string input = getCleanInput();
+        std::stringstream ss(input);
+        // .eof() checks if the stream is at the end, ie, if the entire input was read
+        // the >> operator will evaluate to false if parsing the input into an integer fails
+        if (ss >> value && ss.eof() && value >= lower && value <= upper) {
             return value;
+        } else {
+            std::cout << "Invalid input. Please enter a valid integer.\n";
         }
     }
-}
-
-/**
- * @brief Prompt input from the user and trim whitespace
- */
-std::string getCleanInput() {
-    std::string input;
-    std::getline(std::cin, input);
-    return trimWhite(input);
 }
 
 /**
@@ -69,20 +69,19 @@ std::string getCleanInput() {
 bool confirm(const std::string &prompt) {
     // Create an unordered set that uses our custom hash and equality functions
     // They enable heterogeneous lookup for std::string and std::string_view,
-    // allowing for transparent conversion between the two types
-    const std::unordered_set<std::string, TransparentHasher, TransparentEqual> validInputs = {"y", "n"};
+    // allowing for transparent comparison between the two types
+    const std::unordered_set<char> validInputs = {'y', 'n'};
     while (true) {
         std::cout << prompt << " (y/n):\n";
-        std::string input = getCleanInput();
-        if (input.empty()) {
-            std::cout << "Input cannot be empty. Please enter y or n." << std::endl;
+        const std::string input = getCleanInput();
+        if (input.size() != 1) {
+            std::cout << "Invalid input. Please enter a single character (y or n)." << std::endl;
             continue;
         }
         // Convert input to lowercase
-        std::ranges::transform(input, input.begin(), [](unsigned char c) { return std::tolower(c); });
-
-        if (validInputs.contains(input)) {
-            return input == "y";
+        const auto inputChar = static_cast<char>(std::tolower(static_cast<unsigned char>(input[0])));
+        if (validInputs.contains(inputChar)) {
+            return inputChar == 'y';
         } else {
             std::cout << "Invalid input. Please enter y or n." << std::endl;
         }
@@ -106,37 +105,25 @@ std::optional<std::string> getValidString(const std::string &prompt, const int l
     while (true) {
         std::cout << prompt << "\n";
         const std::string input = getCleanInput();
-
-        if (input.empty()) {
-            std::cout << "Input cannot be empty. Please enter a string." << std::endl;
-            continue;
-        }
-
-        if (cancelString != std::nullopt && input == cancelString) {
+        if (cancelString.has_value() && input == cancelString.value()) {
             return std::nullopt;
-        }
-
-        if (input.size() < lower || input.size() > upper) {
+        } else if (input.empty()) {
+            std::cout << "Input cannot be empty. Please enter a string." << std::endl;
+        } else if (input.size() < lower || input.size() > upper) {
             std::cout << "Input must be between " << lower << " and " << upper
                       << " characters." << std::endl;
-            continue;
         }
-        // If the user provided a set of accepted characters, check if the input
-        // contains any characters not in the set
-        if (accepted != std::nullopt &&
-            std::ranges::any_of(input, [&accepted](char c) { return (!accepted->contains(c)); })) {
+        // check if the input contains non-accepted characters
+        else if (accepted.has_value() &&
+                 std::ranges::any_of(input, [&accepted](char c) { return (!accepted->contains(c)); })) {
             std::cout << "Input contains forbidden characters." << std::endl;
-            continue;
         }
-
-        // If the user provided a set of forbidden characters, check if the input
-        // contains any characters in the set
-        if (forbidden != std::nullopt &&
-            std::ranges::any_of(input, [&forbidden](char c) { return (forbidden->contains(c)); })) {
+        // check if the input contains forbidden characters
+        else if (forbidden.has_value() && std::ranges::any_of(input, [&forbidden](char c) { return (forbidden->contains(c)); })) {
             std::cout << "Input contains forbidden characters." << std::endl;
-            continue;
+        } else {
+            return input;
         }
-        return input;
     }
 }
 
@@ -150,6 +137,8 @@ std::optional<std::string> getValidString(const std::string &prompt, const int l
 std::optional<std::pair<int, int>> getValidCoord(const std::string &prompt, int length, int width) {
     while (true) {
         std::cout << prompt << ". Enter coordinate (e.g. 1A, 'c' to cancel):\n";
+        // skip all characters until a newline is found
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         const std::string coord = getCleanInput();
         if (coord == "c") {
             return std::nullopt;
