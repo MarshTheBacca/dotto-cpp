@@ -1,12 +1,14 @@
 #include "board.h"
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <random>
 #include <ranges>
 #include <set>
 
+#include "enums.h"
 #include "other_tools.h"
 #include "random.h"
 
@@ -26,6 +28,7 @@ std::pair<int, int> generateRandomCoord(const int& length, const int& width) {
     return std::pair<int, int>(Random::getInstance().getInt(0, length - 1),
                                Random::getInstance().getInt(0, width - 1));
 }
+
 /**
  * @brief Rotates the field 180 degrees (in-place)
  * @param field The field to rotate
@@ -73,24 +76,21 @@ void placeDots(std::vector<std::vector<Cell>>& field, const Cell& dotCell, int d
  * @note This function is not guaranteed to replace the exact number of
  * characters if no free spaces are available
  */
-std::set<std::pair<int, int>> randomReplace(std::vector<std::vector<Cell>>& field,
-                                            int numToReplace, const Cell& oldCell,
-                                            const Cell& newCell) {
+void randomReplace(std::vector<std::vector<Cell>>& field,
+                   int numToReplace, const Cell& oldCell,
+                   const Cell& newCell) {
     const int MAXITERATIONS = 100;
     int iterations = 0;
-    std::set<std::pair<int, int>> returnCoords;
 
     while (iterations < MAXITERATIONS && numToReplace > 0) {
         const auto [x, y] = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
         // We can initialise col here because it is only needed in the if statement
         if (field[x][y] == oldCell) {
             field[x][y] = newCell;
-            returnCoords.emplace(x, y);
             numToReplace--;
         }
         iterations++;
     }
-    return returnCoords;
 }
 
 /**
@@ -121,28 +121,24 @@ bool canPlaceBarrier(std::vector<std::vector<Cell>> const& field, std::pair<int,
  * @param baseCoord The base coordinate to place the barrier
  * @param barrierShape The shape of the barrier
  */
-std::set<std::pair<int, int>> placeBarrier(std::vector<std::vector<Cell>>& field,
-                                           const std::pair<int, int>& baseCoord,
-                                           const std::set<std::pair<int, int>>& barrierShape) {
-    std::set<std::pair<int, int>> barrierCoords;
+void placeBarrier(std::vector<std::vector<Cell>>& field,
+                  const std::pair<int, int>& baseCoord,
+                  const std::set<std::pair<int, int>>& barrierShape) {
     std::ranges::for_each(barrierShape, [&](const auto& coord) {
         const auto barrierCoord = vectorAddition(baseCoord, coord);
         field[barrierCoord.first][barrierCoord.second] = BARRIER_CELL;
-        barrierCoords.emplace(barrierCoord);
     });
-    return barrierCoords;
 }
 
 /**
  * @brief Places barriers on the field
  * @param field The field to place the barriers on
  * @param settings The settings data
- * @return A vector of coordinates where the barriers were placed
  * @note This function is not guaranteed to place the exact number of
  * barriers if no free spaces are available
  */
-std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<Cell>>& field,
-                                            SettingsData const& settings) {
+void placeBarriers(std::vector<std::vector<Cell>>& field,
+                   SettingsData const& settings) {
     //   #       #     #     #
     //   # # #   # #   #   # #
     //           #     #
@@ -153,61 +149,61 @@ std::set<std::pair<int, int>> placeBarriers(std::vector<std::vector<Cell>>& fiel
     int barriersToPlace = (settings.length / settings.barrierDensity) * (settings.width / settings.barrierDensity);
     const int MAXITERATIONS = 1000;
     int numIterations = 0;
-    std::set<std::pair<int, int>> barrierCoords;
-
     while (barriersToPlace > 0 && numIterations < MAXITERATIONS) {
         std::pair<int, int> randCoord = generateRandomCoord(static_cast<int>(field.size()), static_cast<int>(field[0].size()));
         const auto& randBarrier = *std::next(barrierLayouts.begin(), Random::getInstance().getInt(0, static_cast<int>(barrierLayouts.size()) - 1));
         if (canPlaceBarrier(field, randCoord, randBarrier)) {
-            const std::set<std::pair<int, int>> newCoords = placeBarrier(field, randCoord, randBarrier);
-            barrierCoords.insert(newCoords.begin(), newCoords.end());
+            placeBarrier(field, randCoord, randBarrier);
             barriersToPlace--;
         }
         numIterations++;
     }
-    return barrierCoords;
+}
+
+std::set<std::pair<int, int>> Board::scanCells(const Cell& targetCell) const {
+    std::set<std::pair<int, int>> coords;
+    for (int i = 0; i < field.size(); i++) {
+        for (int j = 0; j < field[0].size(); j++) {
+            if (field[i][j] == targetCell) {
+                coords.emplace(i, j);
+            }
+        }
+    }
+    return coords;
+}
+
+std::set<std::pair<int, int>> Board::scanCells(const std::set<Cell>& targetCells) const {
+    std::set<std::pair<int, int>> coords;
+    for (int i = 0; i < field.size(); i++) {
+        for (int j = 0; j < field[0].size(); j++) {
+            if (targetCells.contains(field[i][j])) {
+                coords.emplace(i, j);
+            }
+        }
+    }
+    return coords;
+}
+
+std::vector<std::vector<Cell>> Board::generateRandomMap(SettingsData const& settingsData) const {
+    std::vector<std::vector<Cell>> newField(settingsData.length, std::vector<Cell>(settingsData.width, REGULAR_CELL));
+    placeDots(newField, PLAYER_2_CELL, settingsData.numDots);
+    rotateField(newField);
+    placeDots(newField, PLAYER_1_CELL, settingsData.numDots);
+    randomReplace(newField, settingsData.numInitialPowerups, REGULAR_CELL, POWERUP_SOURCE_CELL);
+    placeBarriers(newField, settingsData);
+    randomReplace(newField, settingsData.numInitialCrumblies, REGULAR_CELL, CRUMBLY_CELL);
+    return newField;
 }
 
 /**
  * @brief Constructs a board with the given settings
  * @param settingsData The settings data
  */
-Board::Board(SettingsData const& settingsData) : field(std::vector<std::vector<Cell>>(settingsData.length,
-                                                                                      std::vector<Cell>(settingsData.width, REGULAR_CELL))),
-                                                 length(settingsData.length),
-                                                 width(settingsData.width) {
-    placeDots(field, PLAYER_2_CELL, settingsData.numDots);
-    rotateField(field);
-    placeDots(field, PLAYER_1_CELL, settingsData.numDots);
-    powerupCoords = randomReplace(field, settingsData.numInitialPowerups, REGULAR_CELL, POWERUP_CELL);
-    barrierCoords = placeBarriers(field, settingsData);
-    crumbliesCoords = randomReplace(field, settingsData.numInitialCrumblies, REGULAR_CELL, CRUMBLY_CELL);
-    dotCoords = {{1, scanCellCoords(PLAYER_1_CELL)}, {2, scanCellCoords(PLAYER_2_CELL)}};
+Board::Board(SettingsData const& settingsData)
+    : field(settingsData.map == Map::RANDOM ? generateRandomMap(settingsData) : readMap(settingsData.map)),
+      length(static_cast<int>(field.size())),
+      width(static_cast<int>(field[0].size())) {
 }
-
-/**
- * @brief Scans the field for coordinates with a certain character
- * @param targetCell The character to scan for
- * @return A vector of coordinates with the character
- */
-std::set<std::pair<int, int>> Board::scanCellCoords(const Cell& targetCell) const {
-    std::set<std::pair<int, int>> coords;
-    // Track indexes as it is more efficient than pointer arithmetic
-    int rowIndex = 0;
-    // Use for_each for better readability
-    std::ranges::for_each(field, [&](const auto& row) {
-        int colIndex = 0;
-        std::ranges::for_each(row, [&](const auto& cell) {
-            if (cell == targetCell) {
-                coords.emplace(rowIndex, colIndex);
-            }
-            ++colIndex;
-        });
-        ++rowIndex;
-    });
-    return coords;
-}
-
 /**
  * @brief Places a powerup on the field in a random location
  * @note this function may not place the powerup if no free spaces are available,
@@ -222,8 +218,7 @@ void Board::placePowerup() {
         coord = generateRandomCoord(length, width);
         iters++;
     }
-    field[coord.first][coord.second] = POWERUP_CELL;
-    powerupCoords.emplace(coord);
+    setCell(coord, powerupToCell(generateRandomPowerup()));
 }
 
 /**
@@ -231,7 +226,7 @@ void Board::placePowerup() {
  * @param coord The coordinate to replace
  * @param newCell The character to replace with
  */
-void Board::replaceCell(std::pair<int, int> coord, const Cell& newCell) {
+void Board::replaceCell(const std::pair<int, int>& coord, const Cell& newCell) {
     field[coord.first][coord.second] = newCell;
 }
 
