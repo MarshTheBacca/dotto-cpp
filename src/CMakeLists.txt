@@ -5,10 +5,12 @@ add_executable(dotto-cpp)
 target_sources(dotto-cpp PRIVATE
     board.cpp
     cell.cpp
+    enums.cpp
     game.cpp
     globals.cpp
     main.cpp
     other_tools.cpp
+    piece.cpp
     player.cpp
     random.cpp
     settings_data.cpp
