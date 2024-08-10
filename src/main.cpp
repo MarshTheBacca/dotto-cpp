@@ -23,24 +23,17 @@ int main() {
     auto settingsData = SettingsData();
     while (true) {
         const int option = getValidInt("What would you like to do? \n1) Play\n2) Edit settings\n3) View scores\n4) Exit", 1, 4);
-        switch (option) {
-            case 1: {
-                Game game(settingsData);
-                game.play();
-                break;
-            }
-            case 2: {
-                settingsData.edit();
-                break;
-            }
-            case 3: {
-                showScores(import2D(SCORESPATH));
-                break;
-            }
-            case 4:
-                return 0;
-            default:  // Should never happen
-                break;
+        if (option == 1) {
+            Game game(settingsData);
+            game.play();
+            std::cout << "Game over!\n"
+                      << std::endl;
+        } else if (option == 2) {
+            settingsData.edit();
+        } else if (option == 3) {
+            showScores(import2D(SCORESPATH));
+        } else if (option == 4) {
+            return 0;
         }
     }
 }
