@@ -1,32 +1,56 @@
 #include "game.h"
 
 #include <algorithm>
-#include <format>
+#include <format>  // std::format
 #include <iostream>
 #include <map>
+#include <memory>  // std::shared_ptr
 #include <optional>
 #include <ranges>
+#include <set>
 #include <sstream>
 #include <string>
+#include <tuple>    // std::apply
+#include <utility>  // std::pair
+#include <vector>
 
 #include "board.h"
+#include "enums.h"
 #include "globals.h"
 #include "other_tools.h"
 #include "portal.h"
 #include "random.h"
 #include "validation_tools.h"
 
-const std::map<int, Cell> DOT_CELLS = {{1, PLAYER_1_CELL}, {2, PLAYER_2_CELL}};
-const std::map<char, std::string, std::less<>> DIRECTIONS{{'D', "Right"}, {'A', "Left"}, {'S', "Down"}, {'W', "Up"}};
+/**
+ * @brief Scans the board for pieces of a specific cell type
+ * @param board The board to scan
+ * @param targetCell The cell to scan for
+ * @return A set of pieces with the target cell
+ */
+std::set<Piece> scanPieces(const Board &board, const Cell &targetCell) {
+    std::set<Piece> pieces;
+    for (int i = 0; i < board.length; i++) {
+        for (int j = 0; j < board.width; j++) {
+            if (board.getCell({i, j}) == targetCell) {
+                pieces.emplace(std::pair<int, int>(i, j), targetCell, false);
+            }
+        }
+    }
+    return pieces;
+}
 
 /**
  * @brief Construct a new Game object from a SettingsData object
- * @note Inventories are blank and turn and turnNumber are set to 1
+ * @note Inventories are blank and currentPlayerID and turnNumber are set to 1
  */
 Game::Game(const SettingsData &settingsData) : settings(settingsData),
                                                board(settingsData),
-                                               player1(std::make_shared<Player>(1, PLAYER_1_CELL, std::vector<Powerup>{})),
-                                               player2(std::make_shared<Player>(1, PLAYER_2_CELL, std::vector<Powerup>{})){};
+                                               player1(std::make_shared<Player>(1, PLAYER_1_CELL, BISHOP_1_CELL, scanPieces(board, PLAYER_1_CELL))),
+                                               player2(std::make_shared<Player>(1, PLAYER_2_CELL, BISHOP_2_CELL, scanPieces(board, PLAYER_2_CELL))),
+                                               crumbliesCoords(board.scanCells(CRUMBLY_CELL)),
+                                               powerupSourceCoords(board.scanCells(POWERUP_SOURCE_CELL)),
+                                               barrierCoords(board.scanCells(BARRIER_CELL)) {}
 
 /**
  * @brief Prompts the user for a valid coordinate and edits it appropriately
@@ -34,10 +58,11 @@ Game::Game(const SettingsData &settingsData) : settings(settingsData),
  * @param targetCell The character to check for at the coordinate
  * @param newCell The character to replace the targetCell with
  */
-std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt, const Cell &targetCell, const Cell &newCell) {
-    std::optional<std::pair<int, int>> coord;
+std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt,
+                                                   const Cell &targetCell,
+                                                   const Cell &newCell) {
     while (true) {
-        coord = getValidCoord(prompt, settings.length, settings.width);
+        const auto coord = getValidCoord(prompt, board.length, board.length);
         if (coord == std::nullopt) {
             return std::nullopt;
         }
@@ -51,88 +76,18 @@ std::optional<std::pair<int, int>> Game::editCoord(const std::string &prompt, co
 }
 
 /**
- * @brief Prompts the user to select a dot to move and returns the dot's coordinate
- * @return The coordinate of the selected dot or std::nullopt if the user cancels
- */
-std::optional<std::pair<int, int>> Game::getOrigin() const {
-    std::ostringstream prompt;
-    prompt << "Which dot would you like to move?";
-    const auto &coords = board.dotCoords.at(turn);
-    for (std::size_t i = 0; i < coords.size(); ++i) {
-        auto it = std::next(coords.begin(), i);                        // skip to the i'th element
-        prompt << std::format("\n{}) {}", i + 1, coordToString(*it));  // dereference the iterator to get the pair
-    }
-    auto exitNum = static_cast<int>(coords.size()) + 1;
-    prompt << std::format("\n{}) Cancel", exitNum);
-    int selected = getValidInt(prompt.str(), 0, exitNum);
-    if (selected == exitNum) {
-        return std::nullopt;
-    }
-    return *std::next(coords.begin(), selected - 1);  // skip to the selected element and return it
-}
-
-/**
- * @brief Prompts the user to select a destination for the dot and returns the destination
- * @param moves The possible moves for the dot
- * @return The destination of the dot or std::nullopt if the user cancels
- */
-std::optional<std::pair<int, int>> Game::getDestination(const std::map<char, std::pair<int, int>, std::less<>> &moves) const {
-    std::ostringstream prompt;
-    prompt << "Where would you like to move the dot?";
-    for (const auto &[key, _] : moves) {
-        prompt << std::format("\n{}) {}", key, DIRECTIONS.at(key));
-    }
-    prompt << "\nC) Cancel";
-    std::set<char> accepted = {'C', 'c'};
-    std::cout << prompt.str() << std::endl;
-    for (const auto &[key, _] : moves) {
-        accepted.insert(key);
-        accepted.emplace(static_cast<char>(std::tolower(key)));
-    }
-    const auto wasd = static_cast<char>(std::toupper(getValidString(prompt.str(), 1, 1, "C", std::make_optional(accepted)).value()[0]));
-    // convert to upper case
-    if (wasd == 'C') {
-        return std::nullopt;
-    }
-    return moves.at(wasd);
-}
-
-/**
- * @brief Calculates the new position of a dot after moving in a direction
- * @param position The current position of the dot
- * @param vector The direction to move in
- * @return The new position of the dot or std::nullopt if the move is invalid
- */
-std::optional<std::pair<int, int>> Game::calculateMove(const std::pair<int, int> &position, const std::pair<int, int> &vector) const {
-    const std::pair<int, int> newPos = vectorAddition(position, vector);
-    // If the new position is off the board, return std::nullopt
-    if (!board.isWithinBounds(newPos)) {
-        return std::nullopt;
-    }
-    const std::set<Cell> allowedCells = {REGULAR_CELL, BLANK_CELL, POWERUP_CELL, CRUMBLY_CELL, PORTAL_CELL, getTargetCell()};
-    // If the new position is not one of the allowed characters, return std::nullopt
-    if (const Cell destinationCell = board.getCell(newPos); !allowedCells.contains(destinationCell)) {
-        return std::nullopt;
-        // If the new position is a blank space, calculate the move again in the same direction, effectively hopping over the space
-    } else if (destinationCell == BLANK_CELL) {
-        return calculateMove(newPos, vector);
-    }
-    return std::make_optional(newPos);  // have to convert to optional to agree with return type
-}
-
-/**
  * @brief Updates the position of a dot after moving through a portal
  * @param coord The coordinate of the portal
  * @return The exit of the portal
  * @throws std::invalid_argument if the coordinate is not a member of the board's portals
  */
 std::pair<int, int> Game::updatePortals(const std::pair<int, int> &coord) {
-    for (const auto &portal : board.portals) {
+    for (const auto &portal : portals) {
         if (portal.isMember(coord)) {
             board.replaceCell(coord, REGULAR_CELL);
             const std::pair<int, int> destination = portal.getOpposite(coord);
             // remove portal from the set of portals
-            board.portals.erase(portal);
+            portals.erase(portal);
             // return the exit of the portal
             return destination;
         }
@@ -147,78 +102,40 @@ std::pair<int, int> Game::updatePortals(const std::pair<int, int> &coord) {
  * @note If the destination is a powerup, it is added to the player's inventory
  */
 void Game::processMove(const std::pair<int, int> &origin, std::pair<int, int> &destination) {
-    if (board.crumbliesCoords.contains(origin)) {
-        board.crumbliesCoords.erase(origin);
+    // destination cannot be const because it may be updated by updatePortals
+    // If the origin is a crumbly cell, remove it from the set of crumbly cells
+    const auto originCell = board.getCell(origin);
+    if (crumbliesCoords.contains(origin)) {
+        crumbliesCoords.erase(origin);
         board.replaceCell(origin, BLANK_CELL);
-    } else {
+    } else if (powerupSourceCoords.contains(origin)) {
+        board.replaceCell(origin, POWERUP_SOURCE_CELL);
+    } else {  // otherwise, replace the origin with a regular cell
         board.replaceCell(origin, REGULAR_CELL);
     }
-    if (Cell destinationCell = board.getCell(destination); destinationCell == POWERUP_CELL) {
-        // add random powerup to user's inventory
-        const auto newPowerup = static_cast<Powerup>(Random::getInstance().getInt(0, static_cast<int>(Powerup::COUNT) - 1));
-        getAllyPlayer()->addPowerup(newPowerup);
-        std::cout << std::format("Player {} has found a {}!", turn, powerupToString(newPowerup)) << std::endl;
+
+    // handle actions based on the destination cell
+    if (const Cell destinationCell = board.getCell(destination); destinationCell == DESTROYER_CELL) {
+        getAllyPlayer()->addPowerup(Powerup::DESTROYER);
+        std::cout << std::format("Player {} has found a Destroyer!", currentPlayerID) << std::endl;
+    } else if (destinationCell == HOP_CELL) {
+        getAllyPlayer()->addPowerup(Powerup::HOP);
+        std::cout << std::format("Player {} has found a Hop!", currentPlayerID) << std::endl;
+    } else if (destinationCell == BISHOP_POWER_CELL) {
+        getAllyPlayer()->addPowerup(Powerup::BISHOP);
+        std::cout << std::format("Player {} has found a Bishop!", currentPlayerID) << std::endl;
+    } else if (destinationCell == PORTAL_POWER_CELL) {
+        getAllyPlayer()->addPowerup(Powerup::PORTAL);
+        std::cout << std::format("Player {} has found a Portal!", currentPlayerID) << std::endl;
     } else if (destinationCell == PORTAL_CELL) {
         destination = updatePortals(destination);
-    } else if (destinationCell == CRUMBLY_CELL) {
-        board.crumbliesCoords.emplace(destination);
     } else if (destinationCell == getTargetCell()) {
         // capture their piece
-        board.dotCoords.at(3 - turn).erase(destination);
+        getTargetPlayer()->removePiece(destination);
     }
-    board.replaceCell(destination, getAllyCell());
-    board.dotCoords.at(turn).erase(origin);
-    board.dotCoords.at(turn).emplace(destination);
-    // sets in C++ are already sorted, so no need to resort the dotCoords
-}
-
-/**
- * @brief Detects the possible moves for a dot
- * @param origin The origin of the dot
- * @param vectors The vectors to move in
- * @return A map of directions to destination coordinates if the destination is valid
- */
-std::map<char, std::pair<int, int>, std::less<>> Game::detectMoves(const std::pair<int, int> &origin,
-                                                                   const std::vector<std::pair<int, int>> &vectors) const {
-    std::map<char, std::pair<int, int>, std::less<>> moves;
-    const std::vector<char> DIRECTIONKEYS = {'D', 'A', 'S', 'W'};
-    for (std::size_t i = 0; i < vectors.size(); ++i) {
-        if (auto destination = calculateMove(origin, vectors.at(i)); destination.has_value()) {
-            // Use the DIRECTIONKEYS vector to get the correct direction character
-            moves.try_emplace(DIRECTIONKEYS.at(i), destination.value());
-        }
-    }
-    return moves;
-}
-
-/**
- * @brief Attempts to perform a move by the user
- * @param vectors The vectors to move in
- * @return True if the move was successful, false otherwise
- * @note The function will keep prompting the user until a valid move is made
- */
-bool Game::attemptMove(const std::vector<std::pair<int, int>> &vectors) {
-    // initialise variables outside of while loop because they're needed after
-    std::map<char, std::pair<int, int>, std::less<>> moves;
-    std::optional<std::pair<int, int>> origin;
-    while (true) {
-        origin = getOrigin();
-        if (origin == std::nullopt) {
-            return false;
-        }
-        moves = detectMoves(origin.value(), vectors);
-        if (moves.empty()) {
-            std::cout << "This dot cannot move." << std::endl;
-            continue;
-        }
-        break;
-    }
-    std::optional<std::pair<int, int>> destination = getDestination(moves);
-    if (destination == std::nullopt) {
-        return false;
-    }
-    processMove(origin.value(), destination.value());
-    return true;
+    // move the dot to the destination, and update the player's piece
+    board.replaceCell(destination, originCell);
+    getAllyPlayer()->updatePiece(origin, destination);
 }
 
 /**
@@ -227,60 +144,116 @@ bool Game::attemptMove(const std::vector<std::pair<int, int>> &vectors) {
  * @note A player loses if they have no dots left
  */
 bool Game::checkDefeat() const {
-    return board.dotCoords.at(3 - turn).empty();
+    return getTargetPlayer()->pieces.empty();
 }
+
 /**
  * @brief Prompts the user to use a powerup
  * @return True if a powerup was used, false otherwise
  */
 bool Game::usePowerup() {
-    if (!getAllyPlayer()->hasPowerups()) {
-        std::cout << "You don't have any powerups" << std::endl;
+    const std::optional<Powerup> chosenPowerup = getAllyPlayer()->selectPowerup();
+    if (!chosenPowerup.has_value()) {
         return false;
-    }
-    std::ostringstream prompt;
-    prompt << "Which powerup would you like to use?";
-    for (std::size_t i = 0; i < getAllyPlayer()->inventory.size(); ++i) {
-        prompt << std::format("\n{}) {}", i + 1, powerupToString(getAllyPlayer()->inventory.at(i)));
-    }
-    const auto exitNum = static_cast<int>(getAllyPlayer()->inventory.size()) + 1;
-    prompt << "\n"
-           << exitNum << ") Cancel";
-    const int choice = getValidInt(prompt.str(), 1, exitNum);
-    if (choice == exitNum) {
-        return false;
-    }
-    const Powerup chosenPowerup = getAllyPlayer()->inventory.at(choice - 1);
-    if (chosenPowerup == Powerup::PORTAL) {
+    } else if (chosenPowerup.value() == Powerup::PORTAL) {
         const std::optional<std::pair<int, int>> coord_1 = editCoord("Enter the first portal coordinate", REGULAR_CELL, PORTAL_CELL);
         if (!coord_1.has_value()) {
             return false;
         }
         const std::optional<std::pair<int, int>> coord_2 = editCoord("Enter the second portal coordinate", REGULAR_CELL, PORTAL_CELL).value();
         if (!coord_2.has_value()) {
-            board.replaceCell(coord_1.value(), BLANK_CELL);  // undo the first portal
+            board.replaceCell(coord_1.value(), REGULAR_CELL);  // undo the first portal
             return false;
         }
-        board.portals.emplace(coord_1.value(), coord_2.value());
-    } else if (chosenPowerup == Powerup::DOUBLE_JUMP && !attemptMove({{0, 2}, {0, -2}, {2, 0}, {-2, 0}})) {
+        portals.emplace(coord_1.value(), coord_2.value());
+    } else if (chosenPowerup.value() == Powerup::HOP) {
+        auto originDest = getAllyPlayer()->attemptMove(board, true);
+        if (!originDest.has_value()) {
+            return false;
+        }
+        auto [origin, destination] = originDest.value();
+        processMove(origin, destination);
+    } else if (chosenPowerup.value() == Powerup::DESTROYER && !editCoord("Which barrier would you like to destroy?", BARRIER_CELL, REGULAR_CELL).has_value()) {
         return false;
-    } else if (chosenPowerup == Powerup::DESTORYER && !editCoord("Which barrier would you like to destroy?", BARRIER_CELL, REGULAR_CELL).has_value()) {
-        return false;
+    } else if (chosenPowerup.value() == Powerup::BISHOP) {
+        auto chosenPiece = getAllyPlayer()->selectPiece();
+        if (!chosenPiece.has_value()) {
+            return false;
+        }
+        if (!getAllyPlayer()->upgradePiece(chosenPiece.value())) {
+            return false;
+        }
+        board.setCell(chosenPiece.value().coord, getAllyBishopCell());
     }
-    getAllyPlayer()->removePowerup(chosenPowerup);
+    getAllyPlayer()->removePowerup(chosenPowerup.value());
     return true;
 }
 
 /**
  * @brief Prompts the user to save their score and saves it in the scores file
  */
-void Game::scoreSave() {
+void Game::scoreSave() const {
     if (confirm("Would you like to save the score?")) {
         std::vector<std::vector<std::string>> scores = import2D(SCORESPATH);
         std::string scoreName = getValidString("Enter your names (c to cancel): ", 1, 20, "c", std::nullopt, std::set<char>{',', '\n'}).value();
-        scores.push_back({scoreName, std::to_string(settings.length), std::to_string(settings.width), std::to_string(settings.numDots), std::to_string(turnNumber)});
+        scores.push_back({scoreName, std::to_string(board.length), std::to_string(board.width), std::to_string(settings.numDots), std::to_string(turnNumber)});
         export2D(SCORESPATH, scores);
     }
+}
+
+/**
+ * @brief Places a powerup on the board at a random powerup source cell
+ * @note If no powerup source cells are available, the function does nothing
+ */
+void Game::placePowerup() {
+    // Convert the set to a vector for shuffling
+    std::vector<std::pair<int, int>> potentialCells(powerupSourceCoords.begin(), powerupSourceCoords.end());
+    Random::getInstance().shuffleVector(potentialCells);
+    for (const auto &powerupCoord : potentialCells) {
+        if (board.getCell(powerupCoord) == POWERUP_SOURCE_CELL) {
+            // Get random powerup
+            const Powerup newPowerup = generateRandomPowerup();
+            // Replace the powerup source cell with the new powerup cell
+            board.replaceCell(powerupCoord, powerupToCell(newPowerup));
+            return;
+        }
+    }
+}
+
+/**
+ * @brief Gets the cell of the current player
+ */
+const Cell &Game::getTargetCell() const {
+    return getTargetPlayer()->cell;
+}
+
+/**
+ * @brief Gets the bishop cell of the current opponent
+ */
+const Cell &Game::getTargetBishopCell() const {
+    return getTargetPlayer()->bishopCell;
+}
+
+/**
+ * @brief Gets the cell of the current player
+ */
+const Cell &Game::getAllyCell() const {
+    return getAllyPlayer()->cell;
+}
+
+/**
+ * @brief Gets the bishop cell of the current player
+ */
+const Cell &Game::getAllyBishopCell() const {
+    return getAllyPlayer()->bishopCell;
+}
+
+const std::shared_ptr<Player> &Game::getTargetPlayer() const {
+    return currentPlayerID == 1 ? player2 : player1;
+}
+
+const std::shared_ptr<Player> &Game::getAllyPlayer() const {
+    return currentPlayerID == 1 ? player1 : player2;
 }
 
 /**
@@ -289,22 +262,24 @@ void Game::scoreSave() {
 void Game::play() {
     while (true) {
         if (turnNumber % settings.powerupPlacementFrequency == 0) {
-            board.placePowerup();
+            placePowerup();
         }
         board.show();
-        std::cout << std::format("Player {}'s turn \t\t\tTurn: {}", turn, turnNumber) << std::endl;
+        std::cout << std::format("Player {}'s turn  \t\tTurn: {}", currentPlayerID, turnNumber) << std::endl;
         const int option = getValidInt("What would you like to do? \n1) Move\n2) Use a Powerup\n3) Concede", 1, 3);
-        // Clear the input buffer after reading the integer input
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-        //                                  D       A        S        W
-        if (option == 1 && !attemptMove({{0, 1}, {0, -1}, {1, 0}, {-1, 0}})) {
-            continue;
+        if (option == 1) {
+            // can't be const because processMove may change destination
+            auto originDest = getAllyPlayer()->attemptMove(board, false);
+            if (!originDest.has_value()) {
+                continue;
+            }
+            auto [origin, destination] = originDest.value();
+            processMove(origin, destination);
         } else if (option == 2 && !usePowerup()) {
             continue;
         } else if (option == 3) {
             if (confirm("Are you sure you want to concede?")) {
-                std::cout << "Player " << turn << " has conceded." << std::endl;
+                std::cout << "Player " << currentPlayerID << " has conceded." << std::endl;
                 break;
             } else {
                 continue;
@@ -314,31 +289,9 @@ void Game::play() {
             board.show();
             break;
         }
-        turn = 3 - turn;
+        currentPlayerID = 3 - currentPlayerID;
         turnNumber += 1;
     }
-    std::cout << std::format("Player {} has won in {} turns!", turn, turnNumber) << std::endl;
+    std::cout << std::format("Player {} has won in {} turns!", currentPlayerID, turnNumber) << std::endl;
     scoreSave();
-}
-
-/**
- * @brief Gets the character of the current player
- */
-const Cell &Game::getTargetCell() const {
-    return getTargetPlayer()->cell;
-}
-
-/**
- * @brief Gets the character of the current opponent
- */
-const Cell &Game::getAllyCell() const {
-    return getAllyPlayer()->cell;
-}
-
-const std::shared_ptr<Player> &Game::getTargetPlayer() const {
-    return turn == 1 ? player2 : player1;
-}
-
-const std::shared_ptr<Player> &Game::getAllyPlayer() const {
-    return turn == 1 ? player1 : player2;
 }
