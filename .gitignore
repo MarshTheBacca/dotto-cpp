@@ -1,7 +1,7 @@
 build
 .cache
 .vscode
-
+dotto-cpp
 
 # Prerequisites
 *.d
