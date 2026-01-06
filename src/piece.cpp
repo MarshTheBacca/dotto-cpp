@@ -1,8 +1,7 @@
 #include "piece.h"
 
-#include <iostream>  // std::cout
 #include <set>
-#include <utility>  // std::pair
+#include <utility>
 
 #include "cell.h"
 

@@ -4,12 +4,10 @@
 #include <filesystem>
 #include <functional>
 #include <map>
-#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "board.h"
 #include "cell.h"
 #include "enums.h"
 

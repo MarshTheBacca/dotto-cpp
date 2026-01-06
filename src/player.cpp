@@ -2,14 +2,14 @@
 
 #include <algorithm>
 #include <format>
-#include <iostream>  // std::cout
+#include <iostream>
 #include <map>
 #include <optional>
 #include <ranges>
 #include <set>
 #include <sstream>
 #include <string>
-#include <utility>  // std::pair
+#include <utility>
 #include <vector>
 
 #include "board.h"

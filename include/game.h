@@ -1,17 +1,14 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include <atomic>
-#include <filesystem>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "board.h"
 #include "player.h"
+#include "portal.h"
 #include "settings_data.h"
 
 struct Game {

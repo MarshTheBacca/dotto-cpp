@@ -1,12 +1,10 @@
 #ifndef BOARD_H
 #define BOARD_H
 
-#include <map>
 #include <set>
 #include <vector>
 
 #include "cell.h"
-#include "portal.h"
 #include "settings_data.h"
 
 struct Board {

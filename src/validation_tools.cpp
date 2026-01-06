@@ -3,7 +3,6 @@
 #include <iostream>
 #include <limits>
 #include <optional>
-#include <ranges>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -137,13 +136,11 @@ std::optional<std::string> getValidString(const std::string &prompt, const int l
 std::optional<std::pair<int, int>> getValidCoord(const std::string &prompt, int length, int width) {
     while (true) {
         std::cout << prompt << ". Enter coordinate (e.g. 1A, 'c' to cancel):\n";
-        // skip all characters until a newline is found
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         const std::string coord = getCleanInput();
         if (coord == "c") {
             return std::nullopt;
         }
-        if (!std::regex_match(coord, std::regex(R"(^\d+[A-Z]+$)"))) {
+        if (!std::regex_match(coord, std::regex(R"(^(\d+[a-zA-Z]+|[a-zA-Z]+\d+)$)"))) {
             std::cout << "Invalid coordinate format\n";
             continue;
         }

@@ -1,9 +1,8 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-#include <algorithm>  // std::shuffle
+#include <algorithm>
 #include <random>
-#include <ranges>
 #include <set>
 #include <vector>
 

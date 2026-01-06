@@ -15,4 +15,4 @@ target_sources(dotto-cpp PRIVATE
     random.cpp
     settings_data.cpp
     validation_tools.cpp
-    )
+)

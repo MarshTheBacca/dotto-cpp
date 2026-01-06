@@ -1,7 +1,7 @@
 #ifndef PORTAL_H
 #define PORTAL_H
 
-#include <utility>  // for the pair class
+#include <utility>
 
 /**
  * @brief A struct to represent a portal pair
@@ -16,7 +16,7 @@ struct Portal {
      * @param coord_2 The second coordinate of the portal pair
      */
     Portal(std::pair<int, int> coord_1, std::pair<int, int> coord_2)
-        : coord_1(coord_1), coord_2(coord_2){};
+        : coord_1(coord_1), coord_2(coord_2) {};
 
     /**
      * @brief Identify if a coordinate is a member of the portal pair

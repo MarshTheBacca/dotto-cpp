@@ -4,7 +4,7 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <utility>  // std::pair
+#include <utility>
 
 #include "cell.h"
 

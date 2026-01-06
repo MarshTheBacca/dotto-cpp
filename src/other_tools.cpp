@@ -8,7 +8,6 @@
 #include <iostream>
 #include <map>
 #include <numeric>
-#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -17,7 +16,7 @@
 #include <vector>
 
 #include "cell.h"
-#include "globals.h"  // for the EXE_PATH variable
+#include "globals.h"
 #include "random.h"
 #include "validation_tools.h"
 

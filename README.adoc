@@ -1,0 +1,17 @@
+= Dotto C++
+
+This is a C{plus}{plus} implementation of the original https://github.com/MarshTheBacca/dotto.git[dotto]. The intended use was for embedded systems.
+
+image::sample-image.png[Sample image]
+
+== Building and Running
+
+Prerequisites - CMake, gcc, internet connectivity (for CMake to fetch https://github.com/p-ranav/tabulate.git[tabulate])
+
+[source, bash]
+----
+mkdir build && cd build
+cmake ..
+cmake --build . -j `nproc`V
+./bin/dotto-cpp
+----
