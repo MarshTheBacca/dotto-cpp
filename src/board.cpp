@@ -1,9 +1,7 @@
 #include "board.h"
 
 #include <algorithm>
-#include <functional>
 #include <iostream>
-#include <optional>
 #include <random>
 #include <ranges>
 #include <set>

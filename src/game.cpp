@@ -1,17 +1,12 @@
 #include "game.h"
 
-#include <algorithm>
-#include <format>  // std::format
+#include <format>
 #include <iostream>
-#include <map>
-#include <memory>  // std::shared_ptr
+#include <memory>
 #include <optional>
-#include <ranges>
 #include <set>
-#include <sstream>
 #include <string>
-#include <tuple>    // std::apply
-#include <utility>  // std::pair
+#include <utility>
 #include <vector>
 
 #include "board.h"

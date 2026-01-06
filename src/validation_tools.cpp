@@ -3,7 +3,6 @@
 #include <iostream>
 #include <limits>
 #include <optional>
-#include <ranges>
 #include <regex>
 #include <set>
 #include <sstream>
